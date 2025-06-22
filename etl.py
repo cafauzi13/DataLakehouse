@@ -6,7 +6,7 @@ import os # Import os module
 
 # --- 1. Konfigurasi Database ---
 pg_user = "postgres"
-pg_pass = "**********" 
+pg_pass = "***********" 
 pg_host = "localhost"
 pg_port = "5432"
 
