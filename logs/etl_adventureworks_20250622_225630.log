@@ -1,0 +1,48 @@
+2025-06-22 22:56:30,634 - INFO - Dropping existing tables from Staging and DW databases...
+2025-06-22 22:56:30,768 - INFO - Dropped raw_salesorderdetail from adventureworks_staging.
+2025-06-22 22:56:30,775 - INFO - Dropped raw_salesorderheader from adventureworks_staging.
+2025-06-22 22:56:30,775 - INFO - Dropped raw_product from adventureworks_staging.
+2025-06-22 22:56:30,780 - INFO - Dropped raw_customer from adventureworks_staging.
+2025-06-22 22:56:30,783 - INFO - Dropped raw_person from adventureworks_staging.
+2025-06-22 22:56:30,783 - INFO - Dropped raw_productcategory from adventureworks_staging.
+2025-06-22 22:56:30,788 - INFO - Dropped raw_productsubcategory from adventureworks_staging.
+2025-06-22 22:56:30,791 - INFO - Dropped raw_store from adventureworks_staging.
+2025-06-22 22:56:30,792 - INFO - Dropped raw_vendor from adventureworks_staging.
+2025-06-22 22:56:30,795 - INFO - Dropped raw_productvendor from adventureworks_staging.
+2025-06-22 22:56:30,798 - INFO - Dropped raw_employeedepartmenthistory from adventureworks_staging.
+2025-06-22 22:56:30,800 - INFO - Dropped raw_department from adventureworks_staging.
+2025-06-22 22:56:30,802 - INFO - Dropped raw_employee from adventureworks_staging.
+2025-06-22 22:56:30,804 - INFO - Dropped stg_address from adventureworks_staging.
+2025-06-22 22:56:30,806 - INFO - Dropped stg_businessentityaddress from adventureworks_staging.
+2025-06-22 22:56:30,808 - INFO - Dropped stg_countryregion from adventureworks_staging.
+2025-06-22 22:56:30,810 - INFO - Dropped stg_customer from adventureworks_staging.
+2025-06-22 22:56:30,811 - INFO - Dropped stg_department from adventureworks_staging.
+2025-06-22 22:56:30,813 - INFO - Dropped stg_emailaddress from adventureworks_staging.
+2025-06-22 22:56:30,815 - INFO - Dropped stg_employee from adventureworks_staging.
+2025-06-22 22:56:30,815 - INFO - Dropped stg_employeedepartmenthistory from adventureworks_staging.
+2025-06-22 22:56:30,817 - INFO - Dropped stg_person from adventureworks_staging.
+2025-06-22 22:56:30,819 - INFO - Dropped stg_personphone from adventureworks_staging.
+2025-06-22 22:56:30,820 - INFO - Dropped stg_product from adventureworks_staging.
+2025-06-22 22:56:30,821 - INFO - Dropped stg_productcategory from adventureworks_staging.
+2025-06-22 22:56:30,823 - INFO - Dropped stg_productsubcategory from adventureworks_staging.
+2025-06-22 22:56:30,823 - INFO - Dropped stg_productvendor from adventureworks_staging.
+2025-06-22 22:56:30,827 - INFO - Dropped stg_salesorderdetail from adventureworks_staging.
+2025-06-22 22:56:30,827 - INFO - Dropped stg_salesorderheader from adventureworks_staging.
+2025-06-22 22:56:30,830 - INFO - Dropped stg_stateprovince from adventureworks_staging.
+2025-06-22 22:56:30,830 - INFO - Dropped stg_store from adventureworks_staging.
+2025-06-22 22:56:30,833 - INFO - Dropped stg_vendor from adventureworks_staging.
+2025-06-22 22:56:30,937 - INFO - Dropped dim_product from adventureworks_dw.
+2025-06-22 22:56:30,944 - INFO - Dropped dim_customer from adventureworks_dw.
+2025-06-22 22:56:30,946 - INFO - Dropped dim_store from adventureworks_dw.
+2025-06-22 22:56:30,951 - INFO - Dropped dim_vendor from adventureworks_dw.
+2025-06-22 22:56:30,954 - INFO - Dropped dim_employee from adventureworks_dw.
+2025-06-22 22:56:30,958 - INFO - Dropped dim_date from adventureworks_dw.
+2025-06-22 22:56:30,963 - INFO - Dropped fact_sales from adventureworks_dw.
+2025-06-22 22:56:30,964 - INFO - Dropped dim_warehouse_zone from adventureworks_dw.
+2025-06-22 22:56:30,964 - INFO - Dropped dim_sentiment_category from adventureworks_dw.
+2025-06-22 22:56:30,967 - INFO - Dropped fact_warehouse_temperature from adventureworks_dw.
+2025-06-22 22:56:30,967 - INFO - Dropped fact_social_media_sentiment from adventureworks_dw.
+2025-06-22 22:56:30,983 - INFO - All specified tables dropped from staging and DW databases.
+2025-06-22 22:56:30,987 - INFO - --- Starting AdventureWorks ETL Process ---
+2025-06-22 22:56:30,987 - INFO - Copying raw data from AdventureWorks source to staging database...
+2025-06-22 22:56:30,987 - INFO - Copying Sales.SalesOrderDetail to raw_salesorderdetail in adventureworks_staging...
