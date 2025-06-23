@@ -2,7 +2,7 @@
 
 This project aims to create a **Data Lake** solution for storing, processing, and managing various types of unstructured data. The objective is to set up a data pipeline that accommodates multiple file formats such as CSV, Excel, PDF, and text, performs basic data processing, and allows for easy querying and access via Python functions.
 
-## Fitur Utama
+## Main Features
 
 - **Storage Solution**: Build a storage infrastructure to accommodate multiple types of data.
 - **Data Processing**: Process unstructured data (e.g., CSV, PDF, text files) and make it queryable via Python.
@@ -21,14 +21,14 @@ This project aims to create a **Data Lake** solution for storing, processing, an
 
 For example, in the case of **social media analysis**, tweets mentioning the keyword **"adventureworks"** are collected using an external API. The collected data is processed to generate a **word cloud** as a basic analysis.
 
-## Persyaratan
+## Requirements
 
 Before you start, make sure you have the following installed:
 - Python 3.x
 - PostgreSQL or other database solution (for Data Warehouse)
 - Required Python libraries (see **Installation** section)
 
-## Instalasi
+## Instalation
 
 1. Clone the repository:
    ```bash
