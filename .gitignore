@@ -1,0 +1,11 @@
+# Ignore logs directory
+logs/
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore desktop.ini file (Windows system file)
+desktop.ini
+
