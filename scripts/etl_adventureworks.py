@@ -20,11 +20,11 @@ engine_staging = create_engine(f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_h
 engine_dw = create_engine(f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_dw_db}")
 
 # --- 2. Konfigurasi Logging ---
-# Pastikan folder logs ada sebelum konfigurasi logging
-log_dir = "logs" # Sesuaikan path ini jika folder logs tidak di root proyek Anda
+# Pastikan `log_dir` mengarah ke folder `logs` di root proyek Anda (satu level di atas scripts)
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
-
+    
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -37,10 +37,10 @@ logging.basicConfig(
 # --- 3. Fungsi Utama ETL ---
 
 def drop_all_tables_in_dbs():
-    """Drops all tables in staging and DW databases."""
+    """Truncates (clears) all tables in staging and DW databases for a clean run."""
     
     # Tables to drop from Staging Database (raw_ and stg_ tables)
-    tables_to_drop_staging = [
+    tables_to_clear_staging = [
         "raw_salesorderdetail", "raw_salesorderheader", "raw_product", "raw_customer",
         "raw_person", "raw_productcategory", "raw_productsubcategory", "raw_store",
         "raw_vendor", "raw_productvendor", "raw_employeedepartmenthistory", "raw_department",
@@ -53,35 +53,40 @@ def drop_all_tables_in_dbs():
     ]
     
     # Tables to drop from Data Warehouse Database (dim_ and fact_ tables, including Data Lake ones)
-    tables_to_drop_dw = [
+    tables_to_clear_dw = [
         "dim_product", "dim_customer", "dim_store", "dim_vendor", "dim_employee", 
         "dim_date", "fact_sales",
-        # Tambahkan tabel DW untuk Data Lake di sini (jika sudah ada, agar ikut di-drop)
+        # Tambahkan tabel DW untuk Data Lake di sini (jika sudah ada, agar ikut di-clear)
         "dim_warehouse_zone", "dim_sentiment_category", "fact_warehouse_temperature",
         "fact_social_media_sentiment"
     ]
 
-    logging.info("Dropping existing tables from Staging and DW databases...")
+    logging.info("Clearing existing data from Staging and DW databases (TRUNCATE TABLE)...")
 
     with engine_staging.connect() as conn_stg:
-        for table in tables_to_drop_staging:
+        for table in tables_to_clear_staging:
             try:
-                conn_stg.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE;"))
-                logging.info(f"Dropped {table} from {pg_staging_db}.")
+                # Menggunakan TRUNCATE TABLE untuk menghapus data tanpa menghapus skema tabel
+                # Perhatian: TRUNCATE akan gagal jika tabel belum ada.
+                # Ini mengasumsikan Anda sudah menjalankan create_database_schemas.sql
+                conn_stg.execute(text(f"TRUNCATE TABLE {table} CASCADE;"))
+                logging.info(f"Cleared data from {table} in {pg_staging_db}.")
             except Exception as e:
-                logging.error(f"Failed to drop {table} from {pg_staging_db}: {e}")
+                # Log sebagai warning/info, bukan error, jika tabel tidak ada (karena DDL dijalankan terpisah)
+                logging.warning(f"Failed to clear data from {table} in {pg_staging_db} (table might not exist yet or in use): {e}")
         conn_stg.commit()
 
     with engine_dw.connect() as conn_dw:
-        for table in tables_to_drop_dw:
+        for table in tables_to_clear_dw:
             try:
-                conn_dw.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE;"))
-                logging.info(f"Dropped {table} from {pg_dw_db}.")
+                # Menggunakan TRUNCATE TABLE untuk menghapus data tanpa menghapus skema tabel
+                conn_dw.execute(text(f"TRUNCATE TABLE {table} CASCADE;"))
+                logging.info(f"Cleared data from {table} in {pg_dw_db}.")
             except Exception as e:
-                logging.error(f"Failed to drop {table} from {pg_dw_db}: {e}")
+                logging.warning(f"Failed to clear data from {table} in {pg_dw_db} (table might not exist yet or in use): {e}")
         conn_dw.commit()
     
-    logging.info("All specified tables dropped from staging and DW databases.")
+    logging.info("All specified tables cleared in staging and DW databases.")
 
 
 def copy_raw_tables_to_staging():
@@ -106,87 +111,83 @@ def copy_raw_tables_to_staging():
         try:
             logging.info(f"Copying {src_table} to {dest_table} in {pg_staging_db}...")
             df = pd.read_sql(f"SELECT * FROM {src_table}", engine_adventure_source)
-            df.to_sql(dest_table, engine_staging, if_exists='replace', index=False)
+            df.to_sql(dest_table, engine_staging, if_exists='replace', index=False) # if_exists='replace' akan membuat ulang tabel jika tidak ada, atau menimpa jika ada
             logging.info(f"{dest_table} copied.")
         except Exception as e:
             logging.error(f"Failed to copy {src_table}: {e}")
 
-# Note: Jika kamu punya transformasi dari raw_ ke stg_..., fungsi-fungsi itu akan ada di sini
-# Contoh placeholder untuk transformasi ke stg_address (sesuai yang kamu punya)
-def transform_raw_to_stg_address():
-    try:
-        logging.info("Transforming raw data to stg_address...")
-        # Asumsi ada raw_address atau perlu join dari raw_person dll.
-        # Ini hanya contoh, sesuaikan dengan logika ETL Anda yang sebenarnya
-        df_address = pd.read_sql("SELECT AddressID, AddressLine1, City FROM Person.Address", engine_adventure_source)
-        df_address.to_sql("stg_address", engine_staging, if_exists='replace', index=False)
-        logging.info("stg_address created.")
-    except Exception as e:
-        logging.error(f"Failed to create stg_address: {e}")
+# --- REVISED: Fungsi untuk membuat skema tabel stg_... (DDL Dihapus) ---
+def create_stg_tables():
+    """
+    Placeholder function: Schema for intermediate staging tables (stg_...)
+    is now managed by an external SQL script (create_database_schemas.sql).
+    """
+    logging.info("Schema creation for intermediate staging tables handled by external SQL script.")
+    pass # Tidak ada DDL di sini
 
-# ... tambahkan fungsi transform_raw_to_stg_... lainnya jika ada
 
+# --- Fungsi untuk mengisi tabel stg_... dari raw_... atau sumber asli ---
+def transform_raw_to_stg_tables():
+    """
+    Performs transformations from raw_ tables (or directly from source if preferred)
+    to stg_ tables in the staging database.
+    
+    NOTE: You need to customize the transformation logic inside each try-except block
+    based on how you want to process data from raw_ tables (or original source)
+    into your stg_ tables.
+    """
+    logging.info("Transforming raw_ tables to stg_ tables...")
+
+    tables_for_stg_load = {
+        "Person.Address": "stg_address",
+        "Person.BusinessEntityAddress": "stg_businessentityaddress",
+        "Person.CountryRegion": "stg_countryregion", # Asumsi ada di Adventureworks
+        "Sales.Customer": "stg_customer",
+        "HumanResources.Department": "stg_department",
+        "Person.EmailAddress": "stg_emailaddress",
+        "HumanResources.Employee": "stg_employee",
+        "HumanResources.EmployeeDepartmentHistory": "stg_employeedepartmenthistory",
+        "Person.Person": "stg_person",
+        "Person.PersonPhone": "stg_personphone",
+        "Production.Product": "stg_product",
+        "Production.ProductCategory": "stg_productcategory",
+        "Production.ProductSubcategory": "stg_productsubcategory",
+        "Purchasing.ProductVendor": "stg_productvendor",
+        "Sales.SalesOrderDetail": "stg_salesorderdetail",
+        "Sales.SalesOrderHeader": "stg_salesorderheader",
+        "Person.StateProvince": "stg_stateprovince", # Asumsi ada di Adventureworks
+        "Sales.Store": "stg_store",
+        "Purchasing.Vendor": "stg_vendor"
+    }
+    
+    for src_table_name, dest_stg_table_name in tables_for_stg_load.items():
+        try:
+            logging.info(f"Loading {src_table_name} to {dest_stg_table_name}...")
+            # PENTING: Jika Anda punya transformasi khusus, terapkan di sini
+            # Contoh: df = pd.read_sql(f"SELECT col1, col2 FROM raw_namatabel", engine_staging)
+            df = pd.read_sql(f"SELECT * FROM {src_table_name}", engine_adventure_source) # Copy langsung dari sumber OLTP
+            df.to_sql(dest_stg_table_name, engine_staging, if_exists='replace', index=False)
+            logging.info(f"{dest_stg_table_name} loaded successfully.")
+        except Exception as e:
+            logging.error(f"Failed to load {src_table_name} to {dest_stg_table_name}: {e}")
+
+    logging.info("Transformation from raw_ to stg_ tables completed.")
+
+
+# --- REVISED: Fungsi untuk membuat Star Schema AW (DDL Dihapus) ---
 def create_dim_fact_tables_aw():
-    """Creates Star Schema tables for AdventureWorks in the DW database."""
-    logging.info("Creating AdventureWorks Star Schema tables in DW database...")
-    with engine_dw.connect() as conn_dw:
-        # Dimensi
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_product (
-            productid INT PRIMARY KEY,
-            name TEXT, color TEXT, size TEXT, weight NUMERIC
-        );"""))
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_customer (
-            customerid INT PRIMARY KEY,
-            name TEXT, title TEXT, demographic TEXT
-        );"""))
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_store (
-            storeid INT PRIMARY KEY,
-            storename TEXT
-        );"""))
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_vendor (
-            vendorid INT PRIMARY KEY,
-            vendorname TEXT
-        );"""))
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_employee (
-            employeeid INT PRIMARY KEY,
-            fullname TEXT,
-            jobtitle TEXT,
-            department TEXT
-        );"""))
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS dim_date (
-            datekey INT PRIMARY KEY,
-            fulldate DATE,
-            day INT,
-            month INT,
-            year INT
-        );"""))
-
-        # Fact table
-        conn_dw.execute(text("""
-        CREATE TABLE IF NOT EXISTS fact_sales (
-            factid SERIAL PRIMARY KEY,
-            productid INT REFERENCES dim_product(productid),
-            customerid INT REFERENCES dim_customer(customerid),
-            storeid INT REFERENCES dim_store(storeid),
-            vendorid INT REFERENCES dim_vendor(vendorid),
-            employeeid INT REFERENCES dim_employee(employeeid),
-            datekey INT REFERENCES dim_date(datekey),
-            qtyproduct INT,
-            unitprice NUMERIC,
-            unitpricedisc NUMERIC,
-            totalpenjualan NUMERIC
-        );"""))
-        conn_dw.commit()
-    logging.info("AdventureWorks Star Schema tables created.")
+    """
+    Placeholder function: Schema for AdventureWorks Star Schema tables
+    is now managed by an external SQL script (create_database_schemas.sql).
+    """
+    logging.info("Schema creation for AdventureWorks Star Schema tables handled by external SQL script.")
+    pass # Tidak ada DDL di sini
 
 # --- Extraction Functions (membaca dari staging) ---
-
+# PENTING: Fungsi-fungsi ini SEKARANG MEMBACA DARI RAW_... TABLES DI STAGING DB.
+# Jika Anda sebelumnya mengambil data dari stg_... untuk membentuk dim_...,
+# Anda perlu mengubah 'FROM raw_...' menjadi 'FROM stg_...' di sini.
+# Untuk konsistensi dengan kode lama Anda yang membaca dari raw_, saya biarkan raw_ di sini.
 def extract_dim_product():
     return pd.read_sql("""
         SELECT ProductID AS productid, Name, Color, Size, Weight 
@@ -258,6 +259,8 @@ def extract_fact_sales_order_header():
 def load_df_to_dw(df, table_name):
     """Loads a DataFrame to a specified table in the DW database."""
     try:
+        # Menggunakan if_exists='append' untuk menambahkan data baru
+        # Jika Anda ingin menerapkan SCD Type 1 (update jika berubah), logikanya akan lebih kompleks di sini.
         df.to_sql(table_name, engine_dw, if_exists='append', index=False)
         logging.info(f"Loaded {len(df)} rows into {table_name} in {pg_dw_db}.")
     except Exception as e:
@@ -269,17 +272,24 @@ def run_adventureworks_etl():
     
     logging.info("--- Starting AdventureWorks ETL Process ---")
     
+    # 1. Clear existing data from staging and DW (using TRUNCATE)
+    # Ini akan dijalankan oleh main_orchestrator di awal
+    # logging.info("Clearing existing data from databases for a fresh start...")
+    # drop_all_tables_in_dbs() 
+
     logging.info("Copying raw data from AdventureWorks source to staging database...")
     copy_raw_tables_to_staging()
 
-    # Jika kamu punya transformasi dari raw_ ke stg_..., panggil di sini
-    # Contoh:
-    # logging.info("Transforming raw data to staging tables...")
-    # transform_raw_to_stg_address() 
-    # ... panggil fungsi stg_... lainnya ...
+    # --- NEW: Create and Populate intermediate staging tables (stg_...) ---
+    logging.info("Creating intermediate staging tables (stg_...) schema...")
+    create_stg_tables() # Panggilan fungsi tanpa DDL di dalamnya
+
+    logging.info("Transforming and Loading raw data to intermediate staging tables (stg_)...")
+    transform_raw_to_stg_tables() # Mengisi tabel stg_... (Anda harus implementasi detailnya)
+    # --- END NEW ---
 
     logging.info("Creating AdventureWorks Star Schema tables in DW database...")
-    create_dim_fact_tables_aw()
+    create_dim_fact_tables_aw() # Panggilan fungsi tanpa DDL di dalamnya
 
     logging.info("Transforming and Loading dimension tables for AdventureWorks...")
     load_df_to_dw(extract_dim_product(), "dim_product")
@@ -310,10 +320,12 @@ def run_adventureworks_etl():
 
 # --- Bagian Main (untuk menjalankan sebagai script mandiri) ---
 if __name__ == "__main__":
-    # Ini jika kamu ingin menjalankan ETL AdventureWorks secara terpisah untuk pengujian.
-    # Dalam pipeline Data Lake utama (main_orchestrator.py), kamu akan memanggil run_adventureworks_etl().
+    # PERHATIAN: drop_all_tables_in_dbs() harus dipanggil di main_orchestrator.py
+    # untuk memastikan semua tabel dibersihkan sebelum pipeline penuh berjalan.
+    # Jika Anda menjalankan file ini secara mandiri, pastikan tabel sudah dibuat
+    # dengan create_database_schemas.sql dan jika perlu dibersihkan secara manual.
     
-    # PERINGATAN: Drop semua tabel akan menghapus data yang sudah ada. 
-    # Untuk demo, ini biasanya aman karena akan selalu dimulai dari bersih.
-    drop_all_tables_in_dbs() 
+    logging.warning("Running etl_adventureworks.py as standalone script. Ensure database schemas are pre-created via SQL.")
+    # Jika ingin bersih setiap kali jalankan STANDALONE, Anda bisa panggil:
+    # drop_all_tables_in_dbs()
     run_adventureworks_etl()
