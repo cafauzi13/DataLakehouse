@@ -9,3 +9,9 @@ __pycache__/
 # Ignore desktop.ini file (Windows system file)
 desktop.ini
 
+
+venv/
+
+
+
+

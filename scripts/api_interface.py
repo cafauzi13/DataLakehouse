@@ -11,7 +11,7 @@ from wordcloud import WordCloud
 
 # --- 1. Konfigurasi ---
 pg_user = "postgres"
-pg_pass = "**************"
+pg_pass = "Bismillahbgt123"
 pg_host = "localhost"
 pg_port = "5432"
 pg_dw_db = "adventureworks_dw"
