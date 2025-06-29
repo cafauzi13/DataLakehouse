@@ -11,7 +11,7 @@ from wordcloud import WordCloud
 
 # --- 1. Konfigurasi ---
 pg_user = "postgres"
-pg_pass = "Bismillahbgt123"
+pg_pass = "**************"
 pg_host = "localhost"
 pg_port = "5432"
 pg_dw_db = "adventureworks_dw"
@@ -82,9 +82,7 @@ def get_word_frequency_data():
         return Counter()
 
 def get_financial_summary(exclude_companies=None):
-    """
-    Mengambil ringkasan finansial, dengan opsi untuk MENGECUALIKAN perusahaan tertentu.
-    """
+    
     logging.info(f"API: Fetching financial summary, excluding: {exclude_companies or 'None'}.")
     # Query dasar tetap sama
     query = """

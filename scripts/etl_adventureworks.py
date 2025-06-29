@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql # Import ini untuk ON CONFLICT DO NOT
 
 # --- 1. Konfigurasi Database ---
 pg_user = "postgres"
-pg_pass = "************" 
+pg_pass = "*************" 
 pg_host = "localhost"
 pg_port = "5432"
 

@@ -6,6 +6,7 @@ from textblob import TextBlob
 from collections import Counter
 import fitz  # PyMuPDF
 import docx  # python-docx
+from sqlalchemy import create_engine, text
 
 # --- Konfigurasi Logging ---
 logging.basicConfig(
@@ -26,10 +27,29 @@ except Exception as e:
     logging.critical(f"FATAL: Could not configure paths. Error: {e}")
     exit()
 
+# --- Konfigurasi Koneksi Database Staging ---
+# >>> GANTI USERNAME DAN PASSWORD DI BAWAH INI <<<
+DB_USER = "postgres"     # Ganti dengan username PostgreSQL-mu
+DB_PASSWORD = "*********" # Ganti dengan password-mu
+DB_HOST = "localhost"               # Biasanya 'localhost'
+DB_PORT = "5432"                    # Port default PostgreSQL
+DB_STAGING_NAME = "datalake_staging"  # Sesuai permintaanmu
+
+try:
+    connection_string = f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_STAGING_NAME}'
+    engine_staging = create_engine(connection_string)
+    # Uji koneksi (SUDAH DIPERBAIKI)
+    with engine_staging.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logging.info(f"Successfully connected to the staging database '{DB_STAGING_NAME}'.")
+except Exception as e:
+    logging.critical(f"FATAL: Could not connect to staging database. Error: {e}")
+    exit()
+
 # --- FUNGSI-FUNGSI PEMROSESAN DATA ---
 
-def process_sensor_data(file_list, processed_dir):
-    """Menerima daftar file sensor, mengagregasi, dan menyimpan."""
+def process_sensor_data(file_list, processed_dir, db_engine):
+    """Menerima daftar file sensor, mengagregasi, menyimpan ke CSV DAN memuat ke DB Staging."""
     logging.info(f"--- Processing {len(file_list)} Warehouse Sensor file(s) ---")
     try:
         df_list = [pd.read_csv(f) for f in file_list]
@@ -52,15 +72,22 @@ def process_sensor_data(file_list, processed_dir):
             logging.warning("Warehouse sensor summary is empty after aggregation. Nothing to save.")
             return
 
+        # 1. TETAP SIMPAN KE CSV (untuk skrip load_to_dw)
         output_path = os.path.join(processed_dir, 'warehouse_daily_sensor_summary.csv')
         summary_df.to_csv(output_path, index=False)
-        logging.info(f"Successfully generated warehouse summary with {len(summary_df)} rows.")
+        logging.info(f"Successfully generated warehouse summary CSV with {len(summary_df)} rows.")
+
+        # 2. BARU: MUAT KE DATABASE STAGING
+        table_name = 'warehouse_daily_sensor_summary'
+        summary_df.to_sql(table_name, con=db_engine, if_exists='replace', index=False, method='multi')
+        logging.info(f"Successfully loaded data to staging DB table '{table_name}'.")
+
     except Exception as e:
         logging.error(f"An error occurred during sensor data processing: {e}", exc_info=True)
 
 
-def process_social_media_data(file_list, processed_dir):
-    """Menerima daftar file media sosial, menganalisis sentimen, dan menyimpan."""
+def process_social_media_data(file_list, processed_dir, db_engine):
+    """Menerima daftar file media sosial, menganalisis, menyimpan ke CSV DAN memuat ke DB Staging."""
     logging.info(f"--- Processing {len(file_list)} Social Media file(s) ---")
     try:
         all_tweets = []
@@ -104,13 +131,19 @@ def process_social_media_data(file_list, processed_dir):
                 return str([])
         
         df['top_words_json'] = df['tweet_text'].apply(get_top_words)
-
         df['date_processed'] = pd.Timestamp.now().strftime('%Y-%m-%d')
         df['original_filename'] = "aggregated_from_multiple_files"
 
+        # 1. TETAP SIMPAN KE CSV
         output_path = os.path.join(processed_dir, 'social_media_analysis_summary.csv')
         df.to_csv(output_path, index=False)
-        logging.info(f"Successfully generated social media analysis with {len(df)} rows.")
+        logging.info(f"Successfully generated social media analysis CSV with {len(df)} rows.")
+
+        # 2. BARU: MUAT KE DATABASE STAGING
+        table_name = 'social_media_analysis_summary'
+        df.to_sql(table_name, con=db_engine, if_exists='replace', index=False, method='multi')
+        logging.info(f"Successfully loaded data to staging DB table '{table_name}'.")
+
     except Exception as e:
         logging.error(f"An error occurred during social media processing: {e}", exc_info=True)
 
@@ -129,8 +162,8 @@ def parse_indonesian_currency(value_str):
     return int(num)
 
 
-def process_financial_reports(file_list, processed_dir):
-    """Menerima daftar file laporan, mengekstrak data dengan cerdas, dan menyimpan."""
+def process_financial_reports(file_list, processed_dir, db_engine):
+    """Menerima daftar file laporan, mengekstrak, menyimpan ke CSV DAN memuat ke DB Staging."""
     logging.info(f"--- Processing {len(file_list)} Financial Report file(s) ---")
     try:
         extracted_data = []
@@ -150,7 +183,6 @@ def process_financial_reports(file_list, processed_dir):
                 logging.error(f"Could not extract text from {filename}. Error: {extract_error}")
                 continue
 
-            # Pola untuk file Competitor yang berisi BANYAK record
             if 'competitor' in filename.lower():
                 pattern = re.compile(
                     r"Competitor\s+(?P<company_name>.+?)\s+-\s+Year:\s+(?P<year>\d{4}).*?"
@@ -169,7 +201,6 @@ def process_financial_reports(file_list, processed_dir):
                         'extracted_revenue': int(match.group('revenue').replace(',', '')),
                         'extracted_net_profit': int(match.group('net_income').replace(',', ''))
                     })
-            # Pola untuk file AdventureWorks
             elif 'adventureworks' in filename.lower():
                 flags = re.IGNORECASE | re.DOTALL
                 year_match = re.search(r'tahun fiskal (\d{4})', content, flags)
@@ -192,12 +223,19 @@ def process_financial_reports(file_list, processed_dir):
         df = pd.DataFrame(extracted_data)
         df.dropna(subset=['report_year', 'extracted_revenue'], inplace=True)
         if df.empty:
-            logging.warning("Financial reports data frame is empty after filtering for valid data. Nothing to save.")
+            logging.warning("Financial reports data frame is empty after filtering. Nothing to save.")
             return
 
+        # 1. TETAP SIMPAN KE CSV
         output_path = os.path.join(processed_dir, 'financial_reports_summary.csv')
         df.to_csv(output_path, index=False)
-        logging.info(f"SUCCESS: Successfully generated financial reports summary with {len(df)} rows.")
+        logging.info(f"SUCCESS: Successfully generated financial reports summary CSV with {len(df)} rows.")
+
+        # 2. BARU: MUAT KE DATABASE STAGING
+        table_name = 'financial_reports_summary'
+        df.to_sql(table_name, con=db_engine, if_exists='replace', index=False, method='multi')
+        logging.info(f"Successfully loaded data to staging DB table '{table_name}'.")
+
     except Exception as e:
         logging.error(f"A critical error occurred during financial report processing: {e}", exc_info=True)
 
@@ -210,7 +248,8 @@ def analyze_all_datalake_data():
     """
     logging.info("====== STARTING DATA LAKE ANALYSIS (SMART CLASSIFICATION) ======")
     
-    logging.info("Cleaning up old processed files from staging area...")
+    # Bagian ini tetap relevan untuk membersihkan file CSV lama
+    logging.info("Cleaning up old processed files from local staging area...")
     for filename in os.listdir(PROCESSED_STAGING_DIR):
         try:
             os.remove(os.path.join(PROCESSED_STAGING_DIR, filename))
@@ -240,12 +279,13 @@ def analyze_all_datalake_data():
                  f"{len(files_by_category['social'])} social media files, "
                  f"{len(files_by_category['financial'])} financial reports.")
 
+    # Panggil fungsi proses dengan menyertakan engine database
     if files_by_category['sensors']:
-        process_sensor_data(files_by_category['sensors'], PROCESSED_STAGING_DIR)
+        process_sensor_data(files_by_category['sensors'], PROCESSED_STAGING_DIR, engine_staging)
     if files_by_category['social']:
-        process_social_media_data(files_by_category['social'], PROCESSED_STAGING_DIR)
+        process_social_media_data(files_by_category['social'], PROCESSED_STAGING_DIR, engine_staging)
     if files_by_category['financial']:
-        process_financial_reports(files_by_category['financial'], PROCESSED_STAGING_DIR)
+        process_financial_reports(files_by_category['financial'], PROCESSED_STAGING_DIR, engine_staging)
     
     logging.info("====== DATA LAKE ANALYSIS PROCESS COMPLETED ======")
 

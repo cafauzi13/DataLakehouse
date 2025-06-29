@@ -1,8 +1,0 @@
-pandas
-psycopg2-binary
-sqlalchemy
-PyPDF2
-python-docx
-textblob
-wordcloud
-pyMuPDF

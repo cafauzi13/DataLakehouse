@@ -10,7 +10,7 @@ print("DEBUG: load_datalake_to_dw.py script has started.")
 
 # --- 1. Konfigurasi Database ---
 pg_user = "postgres"
-pg_pass = "**********" 
+pg_pass = "*************" 
 pg_host = "localhost"
 pg_port = "5432"
 pg_dw_db = "adventureworks_dw"
